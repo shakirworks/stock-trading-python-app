@@ -20,11 +20,13 @@ def run_stock_job():
         next_url = data['next_url'] + f'&apiKey={POLYGON_API_KEY}'
         response = requests.get(next_url)
         data = response.json()
+        #print(data)
         if ('results'in data):
             for ticker in data['results']:  
                 ticker['ds'] = DS
                 tickers.append(ticker)
-    print(len(tickers))
+    #print(len(tickers))
+    return tickers
 
     example_ticker = {'ticker': 'BAMB', 
     'name': 'Brookstone Intermediate Bond ETF', 
@@ -34,6 +36,7 @@ def run_stock_job():
     'type': 'ETF', 
     'active': True, 
     'currency_name': 'usd', 
+    'cik': '0001892322',
     'composite_figi': 'BBG01JG4ZQ50', 
     'share_class_figi': 'BBG01JG4ZR03', 
     'last_updated_utc': '2025-09-28T06:04:49.245538295Z',
@@ -47,9 +50,9 @@ def run_stock_job():
         for t in tickers:
             row ={key : t.get(key,'') for key in fieldnames} 
             writer.writerow(row)
-    print(f'{len(tickers)} to {output_csv}')
+    #print(f'{len(tickers)} to {output_csv}')
 
-def load_data_to_snowflake():
+def load_data_to_snowflake(tickers):
 
         #grab the connection parameters from env
         #connect to your warehouse using snowflake connector
@@ -71,19 +74,29 @@ def load_data_to_snowflake():
         try:
             curr.execute (f'DESC TABLE {os.getenv("SNOWFLAKE_SCHEMA")}.{os.getenv("SNOWFLAKE_TABLE")}')
             schema = {row[0] : row[1] for row in curr.fetchall()}
-            print(schema)
+           # print(schema)
             #build the query for the insert
             columns = ', '.join(schema.keys())
             placeholders = ', '.join(['%s']* len(schema))
-            print(columns)
-            print(placeholders)
-            query =f'insert into {os.getenv("SNOWFLAKE_TABLE")} ({columns}), VALUES ({placeholders})'
-            print(query)
+            #print(columns)
+            #print(placeholders)
+            query =f'INSERT INTO {os.getenv("SNOWFLAKE_TABLE")} ({columns}) VALUES ({placeholders})'
+            #print(query)
+            values = [tuple(ticker.values()) for ticker in tickers]
+            #print(values)
+            try:
+                    curr.execute(query,values[7])
+            except Exception as e:
+                 print("Cannot execute query:", e)    
         except Exception as e:
             print("Cannot connect to the table:", e)
 if __name__ == '__main__':
-   load_data_to_snowflake()
-   #run_stock_job()
+   tickers = run_stock_job()
+   #print(tickers)
+   values = [tuple(ticker.values()) for ticker in tickers]
+   print(values[7])
+   load_data_to_snowflake(tickers)
+
 
 
 
