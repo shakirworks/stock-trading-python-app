@@ -12,6 +12,7 @@ def run_stock_job():
     url = f'https://api.polygon.io/v3/reference/tickers?market=stocks&active=true&order=asc&limit=1000&sort=ticker&apiKey={POLYGON_API_KEY}'    
     response = requests.get(url)
     tickers = []
+    normalized_tickers =[]
     data = response.json()
     for ticker in data['results']:
         ticker['ds'] = DS
@@ -26,7 +27,7 @@ def run_stock_job():
                 ticker['ds'] = DS
                 tickers.append(ticker)
     #print(len(tickers))
-    return tickers
+    #return tickers
 
     example_ticker = {'ticker': 'BAMB', 
     'name': 'Brookstone Intermediate Bond ETF', 
@@ -50,8 +51,9 @@ def run_stock_job():
         for t in tickers:
             row ={key : t.get(key,'') for key in fieldnames} 
             writer.writerow(row)
+            normalized_tickers.append(row)
     #print(f'{len(tickers)} to {output_csv}')
-
+    return normalized_tickers
 def load_data_to_snowflake(tickers):
 
         #grab the connection parameters from env
@@ -85,16 +87,16 @@ def load_data_to_snowflake(tickers):
             values = [tuple(ticker.values()) for ticker in tickers]
             #print(values)
             try:
-                    curr.execute(query,values[7])
+                    curr.executemany(query,values)
             except Exception as e:
                  print("Cannot execute query:", e)    
         except Exception as e:
             print("Cannot connect to the table:", e)
 if __name__ == '__main__':
    tickers = run_stock_job()
-   #print(tickers)
-   values = [tuple(ticker.values()) for ticker in tickers]
-   print(values[7])
+   print(tickers)
+   #values = [tuple(ticker.values()) for ticker in tickers]
+   #print(values[7])
    load_data_to_snowflake(tickers)
 
 
